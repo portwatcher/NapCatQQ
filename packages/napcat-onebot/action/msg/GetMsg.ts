@@ -49,7 +49,7 @@ class GetMsg extends OneBotAction<PayloadType, ReturnType> {
     if (!msgIdWithPeer) {
       throw new Error('消息不存在');
     }
-    const peer = { guildId: '', peerUid: msgIdWithPeer?.Peer.peerUid, chatType: msgIdWithPeer.Peer.chatType };
+    const peer = { ...msgIdWithPeer.Peer };
     const getMsgTimeout = this.obContext.configLoader.configData.timeout.baseTimeout;
     const msgRes = await PromiseTimer(
       this.core.apis.MsgApi.getMsgsByMsgId(peer, [msgIdWithPeer?.MsgId || payload.message_id.toString()]),

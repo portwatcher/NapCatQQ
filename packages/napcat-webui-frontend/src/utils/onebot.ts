@@ -7,6 +7,7 @@ import type { ReplyBlockValue } from '@/components/chat_input/formats/reply_blot
 import {
   type AllOB11WsResponse,
   type OB11AllEvent,
+  type OB11GuildMessage,
   type OB11GroupMessage,
   type OB11Message,
   type OB11Notice,
@@ -205,6 +206,18 @@ export const isOB11GroupMessage = (
   data: OB11Message
 ): data is OB11GroupMessage => {
   return data.message_type === 'group';
+};
+
+/**
+ * 判断 OneBot 消息是否为频道消息
+ * @param data OneBot 消息
+ * @returns 是否为频道消息
+ * @description 用于判断 OneBot 消息是否为频道消息
+ */
+export const isOB11GuildMessage = (
+  data: OB11Message
+): data is OB11GuildMessage => {
+  return data.message_type === 'guild';
 };
 
 /**

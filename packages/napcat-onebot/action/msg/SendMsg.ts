@@ -20,9 +20,12 @@ import { OB11MessageMixTypeSchema } from '@/napcat-onebot/types/message';
 import { UploadForwardMsgParams } from '@/napcat-core/packet/transformer/message/UploadForwardMsgV2';
 
 export const SendMsgPayloadSchema = Type.Object({
-  message_type: Type.Optional(Type.Union([Type.Literal('private'), Type.Literal('group')], { description: '消息类型 (private/group)' })),
+  message_type: Type.Optional(Type.Union([Type.Literal('private'), Type.Literal('group'), Type.Literal('guild')], { description: '消息类型 (private/group/guild)' })),
   user_id: Type.Optional(Type.String({ description: '用户QQ' })),
   group_id: Type.Optional(Type.String({ description: '群号' })),
+  guild_id: Type.Optional(Type.String({ description: '频道ID / guild_id' })),
+  channel_id: Type.Optional(Type.String({ description: '子频道ID / channel_id' })),
+  chat_type: Type.Optional(Type.Union([Type.Number(), Type.String()], { description: '频道会话类型，默认4，可传9' })),
   message: OB11MessageMixTypeSchema,
   auto_escape: Type.Optional(Type.Union([Type.Boolean(), Type.String()], { description: '是否作为纯文本发送' })),
   // 以下为扩展字段
@@ -47,6 +50,13 @@ export enum ContextMode {
   Normal = 0,
   Private = 1,
   Group = 2,
+  Guild = 3,
+}
+
+export function resolveGuildChatType (chatType?: number | string): ChatType {
+  return `${chatType ?? ''}` === `${ChatType.KCHATTYPEGROUPGUILD}`
+    ? ChatType.KCHATTYPEGROUPGUILD
+    : ChatType.KCHATTYPEGUILD;
 }
 
 // Normalizes a mixed type (CQCode/a single segment/segment array) into a segment array.
@@ -63,6 +73,13 @@ export function normalize (message: OB11MessageMixType, autoEscape = false): OB1
 export async function createContext (core: NapCatCore, payload: OB11PostContext | undefined, contextMode: ContextMode = ContextMode.Normal): Promise<Peer> {
   if (!payload) {
     throw new Error('请传递请求内容');
+  }
+  if ((contextMode === ContextMode.Guild || contextMode === ContextMode.Normal) && payload.guild_id && payload.channel_id) {
+    return {
+      chatType: resolveGuildChatType(payload.chat_type),
+      peerUid: payload.guild_id.toString(),
+      guildId: payload.channel_id.toString(),
+    };
   }
   if ((contextMode === ContextMode.Group || contextMode === ContextMode.Normal) && payload.group_id) {
     return {
@@ -117,7 +134,10 @@ export async function createContext (core: NapCatCore, payload: OB11PostContext 
   if (contextMode === ContextMode.Group && payload.user_id) {
     throw new Error('当前群聊发送,请指定 group_id 而不是 user_id');
   }
-  throw new Error('请指定正确的 group_id 或 user_id');
+  if (contextMode === ContextMode.Guild) {
+    throw new Error('当前频道发送,请同时指定 guild_id 与 channel_id');
+  }
+  throw new Error('请指定正确的 group_id、user_id 或 guild_id/channel_id');
 }
 
 function getSpecialMsgNum (messages: OB11MessageData[], msgType: OB11MessageDataType): number {
@@ -152,10 +172,14 @@ export class SendMsgBase extends OneBotAction<SendMsgPayload, ReturnDataType> {
   async base_handle (payload: SendMsgPayload, contextMode: ContextMode = ContextMode.Normal): Promise<ReturnDataType> {
     if (payload.message_type === 'group') contextMode = ContextMode.Group;
     if (payload.message_type === 'private') contextMode = ContextMode.Private;
+    if (payload.message_type === 'guild') contextMode = ContextMode.Guild;
     const peer = await createContext(this.core, {
       message_type: payload.message_type,
       user_id: payload.user_id?.toString(),
       group_id: payload.group_id?.toString(),
+      guild_id: payload.guild_id?.toString(),
+      channel_id: payload.channel_id?.toString(),
+      chat_type: payload.chat_type,
     }, contextMode);
 
     const messages = normalize(
@@ -179,7 +203,7 @@ export class SendMsgBase extends OneBotAction<SendMsgPayload, ReturnDataType> {
       }
       if (returnMsgAndResId.message) {
         const msgShortId = MessageUnique.createUniqueMsgId({
-          guildId: '',
+          guildId: peer.guildId ?? '',
           peerUid: peer.peerUid,
           chatType: peer.chatType,
         }, (returnMsgAndResId.message).msgId);

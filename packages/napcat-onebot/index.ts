@@ -65,6 +65,19 @@ interface ApiListType {
   QuickActionApi: OneBotQuickActionApi;
   FileApi: OneBotFileApi;
 }
+
+function isGuildChatType (chatType: ChatType): boolean {
+  return chatType === ChatType.KCHATTYPEGUILD || chatType === ChatType.KCHATTYPEGROUPGUILD;
+}
+
+function buildMessagePeer (message: RawMessage): Peer {
+  return {
+    chatType: message.chatType,
+    peerUid: message.peerUid,
+    guildId: message.guildId ?? '',
+  };
+}
+
 // OneBot实现类
 export class NapCatOneBot11Adapter {
   readonly core: NapCatCore;
@@ -315,14 +328,7 @@ export class NapCatOneBot11Adapter {
           this.context.logger.logDebug(`消息时间${m.msgTime}早于启动时间${this.bootTime}，忽略上报`);
           continue;
         }
-        m.id = MessageUnique.createUniqueMsgId(
-          {
-            chatType: m.chatType,
-            peerUid: m.peerUid,
-            guildId: '',
-          },
-          m.msgId
-        );
+        m.id = MessageUnique.createUniqueMsgId(buildMessagePeer(m), m.msgId);
         await this.emitMsg(m).catch((e) =>
           this.context.logger.logError('处理消息失败', e)
         );
@@ -345,14 +351,7 @@ export class NapCatOneBot11Adapter {
           continue;
         }
 
-        m.id = MessageUnique.createUniqueMsgId(
-          {
-            chatType: m.chatType,
-            peerUid: m.peerUid,
-            guildId: '',
-          },
-          m.msgId
-        );
+        m.id = MessageUnique.createUniqueMsgId(buildMessagePeer(m), m.msgId);
 
         await this.emitMsg(m).catch((e) =>
           this.context.logger.logError('处理在线文件消息失败', e)
@@ -373,14 +372,7 @@ export class NapCatOneBot11Adapter {
           const updatemsg = updatemsgs.find((e) => e.msgId === msg.msgId);
           // updatemsg?.sendStatus == SendStatusType.KSEND_STATUS_SUCCESS_NOSEQ NOSEQ一般是服务器未下发SEQ 这意味着这条消息不应该推送network
           if (updatemsg?.sendStatus === SendStatusType.KSEND_STATUS_SUCCESS) {
-            updatemsg.id = MessageUnique.createUniqueMsgId(
-              {
-                chatType: updatemsg.chatType,
-                peerUid: updatemsg.peerUid,
-                guildId: '',
-              },
-              updatemsg.msgId
-            );
+            updatemsg.id = MessageUnique.createUniqueMsgId(buildMessagePeer(updatemsg), updatemsg.msgId);
             this.emitMsg(updatemsg);
           }
         }
@@ -558,7 +550,11 @@ export class NapCatOneBot11Adapter {
     this.context.logger.logDebug('收到新消息 RawMessage', message);
     await Promise.allSettled([
       this.handleMsg(message),
-      message.chatType === ChatType.KCHATTYPEGROUP ? this.handleGroupEvent(message) : this.handlePrivateMsgEvent(message),
+      message.chatType === ChatType.KCHATTYPEGROUP
+        ? this.handleGroupEvent(message)
+        : isGuildChatType(message.chatType)
+          ? Promise.resolve()
+          : this.handlePrivateMsgEvent(message),
     ]);
   }
 
@@ -572,7 +568,7 @@ export class NapCatOneBot11Adapter {
       if (ob11Msg) {
         const isSelfMsg = this.isSelfMessage(ob11Msg);
         this.context.logger.logDebug('转化为 OB11Message', ob11Msg);
-        if (isSelfMsg || message.chatType !== ChatType.KCHATTYPEGROUP) {
+        if (isSelfMsg || (message.chatType !== ChatType.KCHATTYPEGROUP && !isGuildChatType(message.chatType))) {
           const targetId = parseInt(message.peerUin);
           ob11Msg.stringMsg.target_id = targetId;
           ob11Msg.arrayMsg.target_id = targetId;
@@ -667,7 +663,7 @@ export class NapCatOneBot11Adapter {
   }
 
   private async emitRecallMsg (message: RawMessage, element: MessageElement) {
-    const peer: Peer = { chatType: message.chatType, peerUid: message.peerUid, guildId: '' };
+    const peer = buildMessagePeer(message);
     const oriMessageId = MessageUnique.getShortIdByMsgId(message.msgId) ?? MessageUnique.createUniqueMsgId(peer, message.msgId);
     if (message.chatType === ChatType.KCHATTYPEC2C) {
       return await this.emitFriendRecallMsg(message, oriMessageId, element);

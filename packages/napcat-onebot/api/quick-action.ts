@@ -45,17 +45,24 @@ export class OneBotQuickActionApi {
 
   async handleMsg (msg: OB11Message, quickAction: QuickAction) {
     const reply = quickAction.reply;
-    const peerContextMode = msg.message_type === 'private' ? ContextMode.Private : ContextMode.Group;
+    const peerContextMode = msg.message_type === 'private'
+      ? ContextMode.Private
+      : msg.message_type === 'guild'
+        ? ContextMode.Guild
+        : ContextMode.Group;
     const peer: Peer = await createContext(this.core, {
       group_id: msg.group_id?.toString(),
       user_id: msg.user_id?.toString(),
+      guild_id: msg.guild_id?.toString(),
+      channel_id: msg.channel_id?.toString(),
+      chat_type: msg.chat_type,
     }, peerContextMode);
 
     if (reply) {
       // let group: Group | undefined;
       let replyMessage: OB11MessageData[] = [];
 
-      if (msg.message_type === 'group') {
+      if (msg.message_type === 'group' || msg.message_type === 'guild') {
         // group = await core.apis.GroupApi.getGroup(msg.group_id!.toString());
         replyMessage.push({
           type: 'reply',
@@ -63,7 +70,7 @@ export class OneBotQuickActionApi {
             id: msg.message_id.toString(),
           },
         } as OB11MessageReply);
-        if ((quickAction as QuickActionGroupMessage).at_sender) {
+        if (msg.message_type === 'group' && (quickAction as QuickActionGroupMessage).at_sender) {
           replyMessage.push({
             type: 'at',
             data: {

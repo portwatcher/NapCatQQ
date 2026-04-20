@@ -347,9 +347,12 @@ export const OB11MessageMixTypeSchema = Type.Union([
 
 // 发送消息请求
 export const OB11PostSendMsgSchema = Type.Object({
-  message_type: Type.Optional(Type.Union([Type.Literal('private'), Type.Literal('group')], { description: '消息类型' })),
+  message_type: Type.Optional(Type.Union([Type.Literal('private'), Type.Literal('group'), Type.Literal('guild')], { description: '消息类型' })),
   user_id: Type.Optional(Type.String({ description: '用户QQ号' })),
   group_id: Type.Optional(Type.String({ description: '群号' })),
+  guild_id: Type.Optional(Type.String({ description: '频道ID / guild_id' })),
+  channel_id: Type.Optional(Type.String({ description: '子频道ID / channel_id' })),
+  chat_type: Type.Optional(Type.Union([Type.Number(), Type.String()], { description: '频道会话类型，默认4，可传9' })),
   message: OB11MessageMixTypeSchema,
   messages: Type.Optional(OB11MessageMixTypeSchema),
   auto_escape: Type.Optional(Type.Union([Type.Boolean(), Type.String()], { description: '是否作为纯文本发送' })),
@@ -380,6 +383,7 @@ export const OB11SenderSchema = Type.Object({
 // 完整消息对象
 export const OB11MessageSchema = Type.Object({
   real_seq: Type.Optional(Type.String({ description: '真实序列号' })),
+  chat_type: Type.Optional(Type.Number({ description: '底层会话类型' })),
   temp_source: Type.Optional(Type.Number({ description: '临时会话来源' })),
   message_sent_type: Type.Optional(Type.String({ description: '消息发送类型' })),
   target_id: Type.Optional(Type.Number({ description: '目标ID' })),
@@ -391,11 +395,15 @@ export const OB11MessageSchema = Type.Object({
   user_id: Type.Union([Type.Number(), Type.String()], { description: '发送者QQ号' }),
   group_id: Type.Optional(Type.Union([Type.Number(), Type.String()], { description: '群号' })),
   group_name: Type.Optional(Type.String({ description: '群名称' })),
-  message_type: Type.Union([Type.Literal('private'), Type.Literal('group')], { description: '消息类型' }),
+  guild_id: Type.Optional(Type.Union([Type.Number(), Type.String()], { description: '频道ID / guild_id' })),
+  channel_id: Type.Optional(Type.Union([Type.Number(), Type.String()], { description: '子频道ID / channel_id' })),
+  channel_name: Type.Optional(Type.String({ description: '子频道名称' })),
+  message_type: Type.Union([Type.Literal('private'), Type.Literal('group'), Type.Literal('guild')], { description: '消息类型' }),
   sub_type: Type.Optional(Type.Union([
     Type.Literal('friend'),
     Type.Literal('group'),
     Type.Literal('normal'),
+    Type.Literal('channel'),
   ], { description: '消息子类型' })),
   sender: OB11SenderSchema,
   message: Type.Union([Type.Array(OB11MessageDataSchema), Type.String()], { description: '消息内容' }),
@@ -473,10 +481,14 @@ export interface OB11ForwardMessage extends OB11Message {
 export enum OB11MessageType {
   private = 'private',
   group = 'group',
+  guild = 'guild',
 }
 
 export interface OB11PostContext {
-  message_type?: 'private' | 'group';
+  message_type?: 'private' | 'group' | 'guild';
   user_id?: string;
   group_id?: string;
+  guild_id?: string;
+  channel_id?: string;
+  chat_type?: string | number;
 }

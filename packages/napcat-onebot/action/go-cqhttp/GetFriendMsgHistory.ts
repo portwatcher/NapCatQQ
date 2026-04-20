@@ -51,7 +51,7 @@ export default class GetFriendMsgHistory extends OneBotAction<PayloadType, Retur
     if (msgList.length === 0) throw new Error(`消息${payload.message_seq}不存在`);
     // 转换序号
     await Promise.all(msgList.map(async msg => {
-      msg.id = MessageUnique.createUniqueMsgId({ guildId: '', chatType: msg.chatType, peerUid: msg.peerUid }, msg.msgId);
+      msg.id = MessageUnique.createUniqueMsgId({ guildId: msg.guildId ?? '', chatType: msg.chatType, peerUid: msg.peerUid }, msg.msgId);
     }));
     // 烘焙消息
     const ob11MsgList = (await Promise.all(

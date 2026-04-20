@@ -90,12 +90,17 @@ class MessageUniqueWrapper {
       return [];
     }
     const data = heads.map((t) => MessageUnique.getMsgIdAndPeerByShortId(t.value));
-    const ret = data.filter((t) => t?.Peer.chatType === Peer.chatType && t?.Peer.peerUid === Peer.peerUid);
+    const guildId = Peer.guildId ?? '';
+    const ret = data.filter((t) =>
+      t?.Peer.chatType === Peer.chatType &&
+      t?.Peer.peerUid === Peer.peerUid &&
+      (t?.Peer.guildId ?? '') === guildId
+    );
     return ret.map((t) => t?.MsgId).filter((t) => t !== undefined);
   }
 
   createUniqueMsgId (peer: Peer, msgId: string) {
-    const key = `${msgId}|${peer.chatType}|${peer.peerUid}`;
+    const key = `${msgId}|${peer.chatType}|${peer.peerUid}|${peer.guildId ?? ''}`;
     const hash = crypto.createHash('md5').update(key).digest();
     if (hash[0]) {
       // 设置第一个bit为0 保证shortId为正数
@@ -111,11 +116,11 @@ class MessageUniqueWrapper {
   getMsgIdAndPeerByShortId (shortId: number): { MsgId: string; Peer: Peer; } | undefined {
     const data = this.msgDataMap.getKey(shortId);
     if (data) {
-      const [msgId, chatTypeStr, peerUid] = data.split('|');
+      const [msgId, chatTypeStr, peerUid, ...guildIdParts] = data.split('|');
       const peer: Peer = {
         chatType: parseInt(chatTypeStr ?? '0'),
         peerUid: peerUid ?? '',
-        guildId: '',
+        guildId: guildIdParts.join('|'),
       };
       return { MsgId: msgId ?? '0', Peer: peer };
     }

@@ -5,6 +5,8 @@ export const enum Action {
   sendPrivateMsg = 'send_private_msg',
   /** 发送群消息 */
   sendGroupMsg = 'send_group_msg',
+  /** 发送频道消息 */
+  sendGuildMsg = 'send_guild_msg',
   /** 发送消息 */
   sendMsg = 'send_msg',
   /** 撤回消息 */
@@ -89,6 +91,8 @@ export const enum Action {
   getFriendMsgHistory = 'get_friend_msg_history',
   /** 获取群组历史消息记录 */
   getGroupMsgHistory = 'get_group_msg_history',
+  /** 获取频道历史消息记录 */
+  getGuildMsgHistory = 'get_guild_msg_history',
   /** 对消息进行表情回应 */
   setMsgEmojiLike = 'set_msg_emoji_like',
   /** 上传群文件 */
@@ -123,14 +127,33 @@ export interface Params {
     /** 消息内容是否作为纯文本发送（即不解析 CQ 码），只在 `message` 字段是字符串时有效 */
     auto_escape?: boolean
   }
+  /** 发送频道消息 */
+  [Action.sendGuildMsg]: {
+    /** 频道ID */
+    guild_id: number | string
+    /** 子频道ID */
+    channel_id: number | string
+    /** 底层会话类型 */
+    chat_type?: number | string
+    /** 要发送的内容 */
+    message: Array<OB11Segment>
+    /** 消息内容是否作为纯文本发送（即不解析 CQ 码），只在 `message` 字段是字符串时有效 */
+    auto_escape?: boolean
+  }
   /** 发送消息 */
   [Action.sendMsg]: {
     /** 消息类型 */
-    message_type: 'private' | 'group'
+    message_type: 'private' | 'group' | 'guild'
     /** 对方 QQ 号，当消息类型为 "private" 时有效 */
     user_id?: number
     /** 群号，当消息类型为 "group" 时有效 */
     group_id?: number
+    /** 频道ID，当消息类型为 "guild" 时有效 */
+    guild_id?: number | string
+    /** 子频道ID，当消息类型为 "guild" 时有效 */
+    channel_id?: number | string
+    /** 底层会话类型 */
+    chat_type?: number | string
     /** 要发送的内容 */
     message: Array<OB11Segment>
     /** 消息内容是否作为纯文本发送（即不解析 CQ 码），只在 `message` 字段是字符串时有效 */
@@ -404,6 +427,21 @@ export interface Params {
     /** 消息数量 */
     count: number
   }
+  /** 获取频道历史消息记录 */
+  [Action.getGuildMsgHistory]: {
+    /** 频道ID */
+    guild_id: number | string
+    /** 子频道ID */
+    channel_id: number | string
+    /** 底层会话类型 */
+    chat_type?: number | string
+    /** 起始消息序号 */
+    message_seq?: number
+    /** 起始消息ID */
+    message_id?: number
+    /** 消息数量 */
+    count: number
+  }
   /** 对消息进行表情回应 */
   [Action.setMsgEmojiLike]: {
     /** 需要回应的消息 ID */
@@ -519,13 +557,17 @@ export interface GetMsg {
   /** 发送时间 */
   time: number
   /** 消息类型 */
-  message_type: 'private' | 'group'
+  message_type: 'private' | 'group' | 'guild'
+  chat_type?: number
   message_id: number
   message_seq: number
   real_id: number
+  guild_id?: number | string
+  channel_id?: number | string
+  channel_name?: string
   sender: {
     /** 发送者 QQ 号 */
-    user_id: number
+    user_id: number | string
     /** 昵称 不存在则为空字符串 */
     nickname: string
     /** 性别 */
@@ -694,6 +736,12 @@ export interface Request {
 
   /** 发送群消息 */
   [Action.sendGroupMsg]: {
+    /** 消息 ID */
+    message_id: number
+  }
+
+  /** 发送频道消息 */
+  [Action.sendGuildMsg]: {
     /** 消息 ID */
     message_id: number
   }
@@ -919,6 +967,9 @@ export interface Request {
 
   /** 获取群组历史消息记录 */
   [Action.getGroupMsgHistory]: { messages: GetMsg[] }
+
+  /** 获取频道历史消息记录 */
+  [Action.getGuildMsgHistory]: { messages: GetMsg[] }
 
   /** 对消息进行表情回应 */
   [Action.setMsgEmojiLike]: object

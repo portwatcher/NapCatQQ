@@ -86,6 +86,35 @@ function keyCanBeParsed (key: string, parser: RawToOb11Converters): key is keyof
   return key in parser;
 }
 
+function isGuildChatType (chatType: ChatType): boolean {
+  return chatType === ChatType.KCHATTYPEGUILD || chatType === ChatType.KCHATTYPEGROUPGUILD;
+}
+
+function buildMessagePeer (msg: RawMessage): Peer {
+  return {
+    chatType: msg.chatType,
+    peerUid: msg.peerUid,
+    guildId: msg.guildId ?? '',
+  };
+}
+
+function messageTypeFromChatType (chatType: ChatType): 'private' | 'group' | 'guild' {
+  if (chatType === ChatType.KCHATTYPEGROUP) {
+    return 'group';
+  }
+  if (isGuildChatType(chatType)) {
+    return 'guild';
+  }
+  return 'private';
+}
+
+function toOb11Id (value?: string): number | string {
+  if (!value) {
+    return 0;
+  }
+  return /^\d+$/.test(value) ? parseInt(value) : value;
+}
+
 export class OneBotMsgApi {
   obContext: NapCatOneBot11Adapter;
   core: NapCatCore;
@@ -107,7 +136,10 @@ export class OneBotMsgApi {
         let qq: string = 'all';
         if (element.atType !== NTMsgAtType.ATTYPEALL) {
           const { atNtUid, atUid } = element;
-          qq = !atUid || atUid === '0' ? await this.core.apis.UserApi.getUinByUidV2(atNtUid) : String(Number(atUid) >>> 0);
+          const resolvedUin = !atUid || atUid === '0'
+            ? await this.core.apis.UserApi.getUinByUidV2(atNtUid)
+            : String(Number(atUid) >>> 0);
+          qq = resolvedUin || atNtUid || atUid;
         }
         return {
           type: OB11MessageDataType.at,
@@ -121,11 +153,7 @@ export class OneBotMsgApi {
 
     picElement: async (element, msg, elementWrapper, { disableGetUrl }) => {
       try {
-        const peer = {
-          chatType: msg.chatType,
-          peerUid: msg.peerUid,
-          guildId: '',
-        };
+        const peer = buildMessagePeer(msg);
         FileNapCatOneBotUUID.encode(
           peer,
           msg.msgId,
@@ -165,11 +193,7 @@ export class OneBotMsgApi {
         };
       }
 
-      const peer = {
-        chatType: msg.chatType,
-        peerUid: msg.peerUid,
-        guildId: '',
-      };
+      const peer = buildMessagePeer(msg);
       FileNapCatOneBotUUID.encode(peer, msg.msgId, elementWrapper.elementId, element.fileUuid, element.fileUuid);
       FileNapCatOneBotUUID.encode(peer, msg.msgId, elementWrapper.elementId, element.fileUuid, element.fileName);
       if (this.core.apis.PacketApi.packetStatus && !disableGetUrl) {
@@ -255,11 +279,7 @@ export class OneBotMsgApi {
     },
 
     marketFaceElement: async (_, msg, elementWrapper) => {
-      const peer = {
-        chatType: msg.chatType,
-        peerUid: msg.peerUid,
-        guildId: '',
-      };
+      const peer = buildMessagePeer(msg);
       const { emojiId } = _;
       const dir = emojiId.substring(0, 2);
       const url = `https://gxh.vip.qq.com/club/item/parcel/item/${dir}/${emojiId}/raw300.gif`;
@@ -279,11 +299,7 @@ export class OneBotMsgApi {
     },
 
     replyElement: async (element, msg, _, quick_reply) => {
-      const peer = {
-        chatType: msg.chatType,
-        peerUid: msg.peerUid,
-        guildId: '',
-      };
+      const peer = buildMessagePeer(msg);
 
       // 创建回复数据的通用方法
       const createReplyData = (msgId: string): OB11MessageData => ({
@@ -407,31 +423,19 @@ export class OneBotMsgApi {
       return null;
     },
     videoElement: async (element, msg, elementWrapper, { disableGetUrl }) => {
-      const peer = {
-        chatType: msg.chatType,
-        peerUid: msg.peerUid,
-        guildId: '',
-      };
+      const peer = buildMessagePeer(msg);
       // 读取视频链接并兜底
       let videoUrlWrappers: Awaited<ReturnType<typeof this.core.apis.FileApi.getVideoUrl>> | undefined;
 
       if (msg.peerUin === '284840486' || msg.peerUin === '1094950020') {
         try {
-          videoUrlWrappers = await this.core.apis.FileApi.getVideoUrl({
-            chatType: msg.chatType,
-            peerUid: msg.peerUid,
-            guildId: '0',
-          }, msg.parentMsgIdList[0] ?? msg.msgId, elementWrapper.elementId);
+          videoUrlWrappers = await this.core.apis.FileApi.getVideoUrl(peer, msg.parentMsgIdList[0] ?? msg.msgId, elementWrapper.elementId);
         } catch {
           this.core.context.logger.logWarn('合并获取视频 URL 失败');
         }
       } else {
         try {
-          videoUrlWrappers = await this.core.apis.FileApi.getVideoUrl({
-            chatType: msg.chatType,
-            peerUid: msg.peerUid,
-            guildId: '0',
-          }, msg.msgId, elementWrapper.elementId);
+          videoUrlWrappers = await this.core.apis.FileApi.getVideoUrl(peer, msg.msgId, elementWrapper.elementId);
         } catch {
           this.core.context.logger.logWarn('获取视频 URL 失败');
         }
@@ -488,11 +492,7 @@ export class OneBotMsgApi {
     },
 
     pttElement: async (element, msg, elementWrapper, { disableGetUrl }) => {
-      const peer = {
-        chatType: msg.chatType,
-        peerUid: msg.peerUid,
-        guildId: '',
-      };
+      const peer = buildMessagePeer(msg);
       const fileCode = FileNapCatOneBotUUID.encode(peer, msg.msgId, elementWrapper.elementId, '', element.fileName);
       let pttUrl = '';
       if (this.core.apis.PacketApi.packetStatus && !disableGetUrl) {
@@ -541,11 +541,7 @@ export class OneBotMsgApi {
     },
 
     multiForwardMsgElement: async (element, msg, _wrapper, context) => {
-      const parentMsgPeer = msg.parentMsgPeer ?? {
-        chatType: msg.chatType,
-        guildId: '',
-        peerUid: msg.peerUid,
-      };
+      const parentMsgPeer = msg.parentMsgPeer ?? buildMessagePeer(msg);
       let multiMsgs = await this.getMultiMessages(msg, parentMsgPeer);
       // 拉取失败则跳过
       if (!multiMsgs || multiMsgs.length === 0) {
@@ -629,9 +625,11 @@ export class OneBotMsgApi {
 
       if (!context.peer || !atQQ || context.peer.chatType === ChatType.KCHATTYPEC2C) return undefined; // 过滤掉空atQQ
       if (atQQ === 'all') return at(atQQ, atQQ, NTMsgAtType.ATTYPEALL, '全体成员');
-      const atMember = await this.core.apis.GroupApi.getGroupMember(context.peer.peerUid, atQQ);
-      if (atMember) {
-        return at(atQQ, atMember.uid, NTMsgAtType.ATTYPEONE, atMember.nick || atMember.cardName);
+      if (!isGuildChatType(context.peer.chatType)) {
+        const atMember = await this.core.apis.GroupApi.getGroupMember(context.peer.peerUid, atQQ);
+        if (atMember) {
+          return at(atQQ, atMember.uid, NTMsgAtType.ATTYPEONE, atMember.nick || atMember.cardName);
+        }
       }
       const uid = await this.core.apis.UserApi.getUidByUinV2(`${atQQ}`);
       if (!uid) throw new Error('Get Uid Error');
@@ -1064,14 +1062,23 @@ export class OneBotMsgApi {
   ) {
     if ((msg.senderUin === '0' || msg.senderUin === '')) {
       if (msg.senderUid && msg.senderUid !== '' && msg.senderUid !== '0') {
-        msg.senderUin = await this.core.apis.UserApi.getUinByUidV2(msg.senderUid);
+        if (isGuildChatType(msg.chatType)) {
+          const senderUin = await this.core.apis.UserApi.getUinByUidV2(msg.senderUid);
+          msg.senderUin = senderUin || msg.senderUid;
+        } else {
+          msg.senderUin = await this.core.apis.UserApi.getUinByUidV2(msg.senderUid);
+        }
       } else {
         return undefined;
       }
     }
     if (msg.peerUin === '0' || msg.peerUin === '') {
       if (msg.peerUid && msg.peerUid !== '' && msg.peerUid !== '0') {
-        msg.peerUin = await this.core.apis.UserApi.getUinByUidV2(msg.peerUid);
+        if (isGuildChatType(msg.chatType)) {
+          msg.peerUin = msg.peerUid;
+        } else {
+          msg.peerUin = await this.core.apis.UserApi.getUinByUidV2(msg.peerUid);
+        }
       } else {
         return undefined;
       }
@@ -1085,6 +1092,8 @@ export class OneBotMsgApi {
 
     if (msg.chatType === ChatType.KCHATTYPEGROUP) {
       await this.handleGroupMessage(resMsg, msg);
+    } else if (isGuildChatType(msg.chatType)) {
+      await this.handleGuildMessage(resMsg, msg);
     } else if (msg.chatType === ChatType.KCHATTYPEC2C) {
       await this.handlePrivateMessage(resMsg, msg);
     } else if (msg.chatType === ChatType.KCHATTYPETEMPC2CFROMGROUP) {
@@ -1104,15 +1113,16 @@ export class OneBotMsgApi {
   private initializeMessage (msg: RawMessage): OB11Message {
     return {
       self_id: parseInt(this.core.selfInfo.uin),
-      user_id: parseInt(msg.senderUin),
+      user_id: toOb11Id(msg.senderUin || msg.senderUid),
       time: parseInt(msg.msgTime) || Date.now(),
       message_id: msg.id!,
       message_seq: msg.id!,
       real_id: msg.id!,
       real_seq: msg.msgSeq,
-      message_type: msg.chatType === ChatType.KCHATTYPEGROUP ? 'group' : 'private',
+      chat_type: msg.chatType,
+      message_type: messageTypeFromChatType(msg.chatType),
       sender: {
-        user_id: +(msg.senderUin ?? 0),
+        user_id: toOb11Id(msg.senderUin || msg.senderUid),
         nickname: msg.sendNickName,
         card: msg.sendMemberName ?? '',
       },
@@ -1137,16 +1147,33 @@ export class OneBotMsgApi {
     }
   }
 
+  private async handleGuildMessage (resMsg: OB11Message, msg: RawMessage) {
+    resMsg.sub_type = 'channel';
+    resMsg.guild_id = msg.peerUin || msg.peerUid;
+    resMsg.channel_id = msg.guildId;
+    resMsg.channel_name = msg.peerName;
+    resMsg.sender.nickname = msg.sendNickName || msg.sendMemberName || resMsg.sender.nickname;
+    if (!resMsg.sender.nickname && msg.senderUid) {
+      try {
+        resMsg.sender.nickname = (await this.core.apis.UserApi.getUserDetailInfo(msg.senderUid)).nick;
+      } catch {
+        resMsg.sender.nickname = '';
+      }
+    }
+  }
+
   private async handlePrivateMessage (resMsg: OB11Message, msg: RawMessage) {
     resMsg.sub_type = 'friend';
-    if (await this.core.apis.FriendApi.isBuddy(msg.senderUid)) {
+    if (msg.senderUid && await this.core.apis.FriendApi.isBuddy(msg.senderUid)) {
       const nickname = (await this.core.apis.UserApi.getCoreAndBaseInfo([msg.senderUid])).get(msg.senderUid)?.coreInfo.nick;
       if (nickname) {
         resMsg.sender.nickname = nickname;
         return;
       }
     }
-    resMsg.sender.nickname = (await this.core.apis.UserApi.getUserDetailInfo(msg.senderUid)).nick;
+    if (msg.senderUid) {
+      resMsg.sender.nickname = (await this.core.apis.UserApi.getUserDetailInfo(msg.senderUid)).nick;
+    }
   }
 
   private async handleTempGroupMessage (resMsg: OB11Message, msg: RawMessage) {
@@ -1278,7 +1305,7 @@ export class OneBotMsgApi {
       if (!returnMsg) throw new Error('发送消息失败');
       returnMsg.id = MessageUnique.createUniqueMsgId({
         chatType: peer.chatType,
-        guildId: '',
+        guildId: peer.guildId ?? '',
         peerUid: peer.peerUid,
       }, returnMsg.msgId);
       return returnMsg;

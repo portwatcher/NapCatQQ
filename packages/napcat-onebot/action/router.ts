@@ -48,6 +48,7 @@ export const ActionName = {
   // onebot 11
   SendPrivateMsg: 'send_private_msg',
   SendGroupMsg: 'send_group_msg',
+  SendGuildMsg: 'send_guild_msg',
   SendMsg: 'send_msg',
   DeleteMsg: 'delete_msg',
   GetMsg: 'get_msg',
@@ -173,6 +174,7 @@ export const ActionName = {
 
   GetGuildList: 'get_guild_list',
   GetGuildProfile: 'get_guild_service_profile',
+  GetGuildMsgHistory: 'get_guild_msg_history',
 
   GetGroupIgnoredNotifies: 'get_group_ignored_notifies',
 

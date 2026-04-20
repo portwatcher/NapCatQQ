@@ -21,12 +21,14 @@ export const enum OB11Event {
 export const enum OB11MessageType {
   Private = 'private',
   Group = 'group',
+  Guild = 'guild',
 }
 
 /** 消息子类型 */
 export const enum OB11MessageSubType {
   Friend = 'friend',
   Group = 'group',
+  Channel = 'channel',
   Other = 'other',
   Normal = 'normal',
   Anonymous = 'anonymous',
@@ -103,6 +105,17 @@ export interface GroupSender {
   title?: string
 }
 
+export interface GuildSender {
+  /** 发送者 QQ 号或 UID */
+  user_id: number | string
+  /** 昵称 不存在则为空字符串 */
+  nickname: string
+  /** 频道内展示名 */
+  card?: string
+  /** 角色 */
+  role?: 'owner' | 'admin' | 'member'
+}
+
 /** 所有事件基类 */
 export interface OB11EventBase {
   /** 事件发生的时间戳 */
@@ -124,7 +137,7 @@ interface MessageBase extends OB11EventBase {
   /** 消息 ID */
   message_id: number
   /** 发送者 QQ 号 */
-  user_id: number
+  user_id: number | string
   /** 消息内容 */
   message: OB11Segment[]
   /** 原始消息内容 */
@@ -168,8 +181,24 @@ export interface OB11GroupMessage extends MessageBase {
   sender: GroupSender
 }
 
+/** 频道消息事件 */
+export interface OB11GuildMessage extends MessageBase {
+  /** 消息类型 */
+  message_type: 'guild'
+  /** 消息子类型 */
+  sub_type: 'channel'
+  /** 频道ID */
+  guild_id: number | string
+  /** 子频道ID */
+  channel_id: number | string
+  /** 子频道名称 */
+  channel_name?: string
+  /** 发送人信息 */
+  sender: GuildSender
+}
+
 /** 消息事件 */
-export type OB11Message = OB11PrivateMessage | OB11GroupMessage;
+export type OB11Message = OB11PrivateMessage | OB11GroupMessage | OB11GuildMessage;
 
 /** 通知事件基类 */
 export interface NoticeBase extends OB11EventBase {

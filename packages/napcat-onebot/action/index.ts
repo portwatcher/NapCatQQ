@@ -102,6 +102,8 @@ import { SendGroupAiRecord } from '@/napcat-onebot/action/group/SendGroupAiRecor
 import { GetAiCharacters } from '@/napcat-onebot/action/extends/GetAiCharacters';
 import { GetGuildList } from './guild/GetGuildList';
 import { GetGuildProfile } from './guild/GetGuildProfile';
+import SendGuildMsg from './guild/SendGuildMsg';
+import { GetGuildMsgHistory } from './guild/GetGuildMsgHistory';
 import { GetClientkey } from './extends/GetClientkey';
 import { SendPacket } from './extends/SendPacket';
 import { FriendPoke, GroupPoke, SendPoke } from '@/napcat-onebot/action/packet/SendPoke';
@@ -221,6 +223,7 @@ export function getAllHandlers (obContext: NapCatOneBot11Adapter, core: NapCatCo
     new GetGroupMemberInfo(obContext, core),
     new SendGroupMsg(obContext, core),
     new SendPrivateMsg(obContext, core),
+    new SendGuildMsg(obContext, core),
     new SendMsg(obContext, core),
     new DeleteMsg(obContext, core),
     new SetGroupAddRequest(obContext, core),
@@ -260,6 +263,7 @@ export function getAllHandlers (obContext: NapCatOneBot11Adapter, core: NapCatCo
     new GoCQHTTPGetStrangerInfo(obContext, core),
     new GoCQHTTPDownloadFile(obContext, core),
     new GetGuildList(obContext, core),
+    new GetGuildMsgHistory(obContext, core),
     new GoCQHTTPMarkMsgAsRead(obContext, core),
     new GoCQHTTPUploadGroupFile(obContext, core),
     new GoCQHTTPGetGroupMsgHistory(obContext, core),

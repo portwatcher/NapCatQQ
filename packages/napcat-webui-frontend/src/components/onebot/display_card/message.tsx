@@ -2,9 +2,10 @@ import { Avatar } from '@heroui/avatar';
 import { Popover, PopoverContent, PopoverTrigger } from '@heroui/popover';
 import clsx from 'clsx';
 
-import { isOB11GroupMessage } from '@/utils/onebot';
+import { isOB11GroupMessage, isOB11GuildMessage } from '@/utils/onebot';
 
 import type {
+  OB11GuildMessage,
   OB11GroupMessage,
   OB11Message,
   OB11PrivateMessage,
@@ -22,6 +23,10 @@ export interface OneBotMessageGroupProps {
 
 export interface OneBotMessagePrivateProps {
   data: OB11PrivateMessage;
+}
+
+export interface OneBotMessageGuildProps {
+  data: OB11GuildMessage;
 }
 
 const MessageContent: React.FC<{ data: OB11Message; }> = ({ data }) => {
@@ -109,9 +114,30 @@ const OneBotMessagePrivate: React.FC<OneBotMessagePrivateProps> = ({
   );
 };
 
+const OneBotMessageGuild: React.FC<OneBotMessageGuildProps> = ({ data }) => {
+  return (
+    <div className='h-full overflow-hidden flex flex-col w-full'>
+      <div className='flex items-center p-1 flex-shrink-0'>
+        <div>频道 {data.guild_id}</div>
+        <div className='ml-2 text-default-400'>子频道 {data.channel_id}</div>
+      </div>
+      <div className='flex items-start p-1 rounded-md h-full flex-1 border border-default-100'>
+        <Avatar
+          alt='频道用户头像'
+          size='md'
+          className='flex-shrink-0 mr-2'
+        />
+        <MessageContent data={data} />
+      </div>
+    </div>
+  );
+};
+
 const OneBotMessage: React.FC<OneBotMessageProps> = ({ data }) => {
   if (data.message_type === 'group') {
     return <OneBotMessageGroup data={data} />;
+  } else if (isOB11GuildMessage(data)) {
+    return <OneBotMessageGuild data={data} />;
   } else if (data.message_type === 'private') {
     return <OneBotMessagePrivate data={data} />;
   } else {
